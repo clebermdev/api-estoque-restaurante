@@ -29,7 +29,7 @@ db.schema.hasTable('itens').then((existe) => {
     if (!existe) {
         return db.schema.createTable('itens', (tabela) => {
             tabela.increments('id').primary();
-            tabela.string('nome', 255).notNullable();
+            tabela.string('nome', 255).notNullable().unique();
             tabela.integer('quantidade').notNullable();
             tabela.string('unidade', 50);
             tabela.timestamps(true, true);

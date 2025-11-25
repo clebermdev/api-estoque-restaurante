@@ -66,6 +66,14 @@ const ItemControlador = {
             
         } catch (erro) {
             console.error(erro);
+            
+            // NOVA LÓGICA: Verifica se é um erro de duplicidade do MySQL (Código 1062)
+            if (erro.errno === 1062) { 
+                // Retorna 409 Conflict (Erro de lógica de negócio: recurso já existe)
+                return res.status(409).json({ erro: `O item '${req.body.nome}' já está cadastrado no estoque.` });
+            }
+            
+            // Retorna 500 para outros erros internos do servidor
             return res.status(500).json({ erro: 'Erro ao adicionar item.' });
         }
     },
