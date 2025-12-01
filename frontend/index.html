@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Estoque REST</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>API Estoque Restaurante (Frontend)</h1>
+    </header>
+
+    <main>
+        <section class="adicionar-item">
+            <h2>➕ Adicionar Novo Item</h2>
+            <form id="form-adicionar-item">
+                <input type="text" id="nome" placeholder="Nome do Item (Ex: Arroz)" required>
+                <input type="number" id="quantidade" placeholder="Quantidade" required>
+                <input type="text" id="unidade" placeholder="Unidade (Ex: kg, litro)" required>
+                <button type="submit">Adicionar ao Estoque</button>
+            </form>
+            <p id="mensagem-status"></p>
+        </section>
+
+        <hr>
+
+        <section class="lista-estoque">
+            <h2>📋 Estoque Atual</h2>
+            <button id="botao-carregar">Carregar Estoque</button>
+            <table id="tabela-estoque">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Quantidade</th>
+                        <th>Unidade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
