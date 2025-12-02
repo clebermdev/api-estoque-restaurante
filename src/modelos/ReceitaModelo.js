@@ -9,19 +9,15 @@ const ReceitaModelo = {
     
     // CRIAR uma nova receita e seus ingredientes de uma vez
     async criarComIngredientes(receitaData, ingredientes) {
-        // Usamos uma transação para garantir que TUDO seja criado ou NADA seja criado.
         return db.transaction(async (trx) => {
-            // 1. Inserir a receita principal
             const [receita_id] = await trx('receitas').insert(receitaData);
 
-            // 2. Preparar os ingredientes para inserção na tabela pivot
             const ingredientesParaInserir = ingredientes.map(ing => ({
                 receita_id: receita_id,
                 item_id: ing.item_id, 
-                quantidade_necessaria: ing.quantidade_necessaria
+                quantidade_necessaria: parseFloat(ing.quantidade_necessaria) 
             }));
 
-            // 3. Inserir todos os ingredientes
             if (ingredientesParaInserir.length > 0) {
                 await trx('receita_ingredientes').insert(ingredientesParaInserir);
             }
@@ -30,13 +26,11 @@ const ReceitaModelo = {
         });
     },
 
-    // NOVO: Busca uma única receita e seus ingredientes
+    // Busca uma única receita e seus ingredientes
     async buscarDetalhes(id) {
-        // 1. Busca a receita principal
         const receita = await db('receitas').where({ id }).first();
         if (!receita) return null;
 
-        // 2. Busca todos os ingredientes associados, juntando com a tabela 'itens' para pegar o nome
         const ingredientes = await db('receita_ingredientes')
             .join('itens', 'receita_ingredientes.item_id', '=', 'itens.id')
             .where('receita_ingredientes.receita_id', id)
@@ -51,18 +45,27 @@ const ReceitaModelo = {
         return receita;
     },
 
-    // NOVO: Busca todas as receitas, mas de forma simplificada
+    // Busca todas as receitas, mas de forma simplificada
     async buscarTodas() {
-        // Para a listagem inicial, buscamos apenas os dados da tabela 'receitas'
         return db('receitas').select('*');
+    },
+
+    // [NOVO] UPDATE: Atualiza os dados principais de uma receita
+    async atualizar(id, dadosReceita) {
+        // Atualiza apenas os campos da tabela principal 'receitas'
+        return db('receitas').where({ id }).update(dadosReceita);
+    },
+
+    // [NOVO] DELETE: Remove uma receita
+    async remover(id) {
+        // O MySQL remove automaticamente os ingredientes pela regra ON DELETE CASCADE
+        return db('receitas').where({ id }).del();
     },
 
     // Lógica Central: VENDER e ATUALIZAR ESTOQUE (Transação)
     async venderReceita(receita_id) {
-        // Transação é CRUCIAL
         return db.transaction(async (trx) => {
             
-            // 1. Buscar os ingredientes necessários (sem JOIN, apenas IDs)
             const ingredientes = await trx('receita_ingredientes')
                 .where({ receita_id })
                 .select('item_id', 'quantidade_necessaria');
@@ -82,25 +85,27 @@ const ReceitaModelo = {
                     throw new Error(`Item de estoque (ID: ${ing.item_id}) não encontrado.`);
                 }
                 
-                // Checagem se há estoque suficiente
-                if (parseFloat(itemEstoque.quantidade) < parseFloat(ing.quantidade_necessaria)) {
+                // Conversão explícita para float na checagem
+                const estoqueAtual = parseFloat(itemEstoque.quantidade);
+                const quantidadeNecessaria = parseFloat(ing.quantidade_necessaria); 
+
+                if (estoqueAtual < quantidadeNecessaria) {
                     throw new Error(`Estoque insuficiente de ${itemEstoque.nome}. Necessário: ${ing.quantidade_necessaria}, Disponível: ${itemEstoque.quantidade}`);
                 }
             }
 
-            // 3. Se TUDO estiver disponível, proceder com o desconto
+            // 3. Proceder com o desconto (Agora com precisão decimal garantida)
             for (const ing of ingredientes) {
+                const valorDesconto = parseFloat(ing.quantidade_necessaria); 
+                
                 await trx('itens')
                     .where('id', ing.item_id)
-                    // Usamos .decrement para subtrair a quantidade
-                    .decrement('quantidade', ing.quantidade_necessaria); 
+                    .update('quantidade', db.raw('quantidade - ?', [valorDesconto])); 
             }
 
             return { message: 'Venda registrada com sucesso e estoque atualizado.' };
         });
     },
-    
-    // ... (Outras funções de atualização/remoção podem ser adicionadas)
 };
 
 module.exports = ReceitaModelo;

@@ -7,10 +7,9 @@ const ReceitaModelo = require('../modelos/ReceitaModelo');
  */
 const ReceitaControlador = {
 
-    // [GET /receitas] - Listar todas as receitas (IMPLEMENTADO)
+    // [GET /receitas] - Listar todas as receitas
     async index(req, res) {
         try {
-            // Agora usamos a função buscarTodas implementada no Modelo
             const receitas = await ReceitaModelo.buscarTodas(); 
             return res.status(200).json(receitas);
         } catch (erro) {
@@ -19,7 +18,7 @@ const ReceitaControlador = {
         }
     },
     
-    // [GET /receitas/:id] - Buscar detalhes de uma receita (OPCIONAL)
+    // [GET /receitas/:id] - Buscar detalhes de uma receita
     async show(req, res) {
         const { id } = req.params;
         try {
@@ -54,10 +53,56 @@ const ReceitaControlador = {
 
         } catch (erro) {
             console.error(erro);
-            if (erro.errno === 1062) { // MySQL Duplicate Entry
+            if (erro.errno === 1062) { 
                  return res.status(409).json({ erro: `A receita '${nome}' já existe.` });
             }
             return res.status(500).json({ erro: 'Erro ao cadastrar a receita: ' + erro.message });
+        }
+    },
+    
+    // [NOVO] [PUT /receitas/:id] - Atualizar uma receita
+    async update(req, res) {
+        const { id } = req.params;
+        const dadosAtualizados = req.body;
+
+        if (Object.keys(dadosAtualizados).length === 0) {
+            return res.status(400).json({ erro: 'Nenhum dado fornecido para atualização.' });
+        }
+
+        try {
+            const count = await ReceitaModelo.atualizar(id, dadosAtualizados);
+
+            if (count === 0) {
+                return res.status(404).json({ erro: 'Receita não encontrada para atualização.' });
+            }
+
+            return res.status(200).json({ mensagem: 'Receita atualizada com sucesso!' });
+
+        } catch (erro) {
+            console.error(erro);
+            if (erro.errno === 1062) {
+                 return res.status(409).json({ erro: `O nome da receita já existe.` });
+            }
+            return res.status(500).json({ erro: 'Erro ao atualizar receita.' });
+        }
+    },
+
+    // [NOVO] [DELETE /receitas/:id] - Remover uma receita
+    async destroy(req, res) {
+        const { id } = req.params;
+
+        try {
+            const count = await ReceitaModelo.remover(id);
+
+            if (count === 0) {
+                return res.status(404).json({ erro: 'Receita não encontrada para remoção.' });
+            }
+
+            return res.status(204).send();
+
+        } catch (erro) {
+            console.error(erro);
+            return res.status(500).json({ erro: 'Erro ao remover receita.' });
         }
     },
 

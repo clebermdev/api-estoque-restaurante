@@ -12,9 +12,16 @@ const configuracao = {
         database: 'estoque_restaurante' 
     },
     // Pool de conexões para melhor performance
-    pool: {
+pool: {
         min: 2,
-        max: 10
+        max: 10,
+        // SOLUÇÃO FINAL: Executa um comando SQL após a conexão ser criada
+        afterCreate: (conn, done) => {
+            // Desliga o modo SQL estrito para garantir que decimais funcionem
+            conn.query("SET SESSION sql_mode = '';", (err) => {
+                done(err, conn);
+            });
+        }
     }
 };
 
