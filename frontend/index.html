@@ -16,12 +16,46 @@
             <h2>➕ Adicionar Novo Item</h2>
             <form id="form-adicionar-item">
                 <input type="text" id="nome" placeholder="Nome do Item (Ex: Arroz)" required>
-                <input type="number" id="quantidade" placeholder="Quantidade" required>
+                <input type="number" step="0.001" id="quantidade" placeholder="Quantidade" required>
                 <input type="text" id="unidade" placeholder="Unidade (Ex: kg, litro)" required>
                 <button type="submit">Adicionar ao Estoque</button>
             </form>
             <p id="mensagem-status"></p>
         </section>
+
+        <hr>
+
+        <section class="gerenciar-receitas">
+            <h2>🍽️ Receitas Cadastradas</h2>
+            <p id="mensagem-receita"></p>
+            
+            <button id="botao-carregar-receitas">Ver/Atualizar Receitas</button>
+            <button id="botao-nova-receita">Cadastrar Nova Receita</button> 
+
+            <table id="tabela-receitas">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Preço</th>
+                        <th>Ingredientes</th>
+                        <th>Vender?</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </section>
+
+        <div id="modal-venda" class="modal" style="display: none;">
+            <div class="modal-conteudo">
+                <h3>Venda de Receita</h3>
+                <p>Confirmar venda de: <strong id="nome-receita-venda"></strong></p>
+                <button id="confirmar-venda">Confirmar</button>
+                <button onclick="document.getElementById('modal-venda').style.display = 'none'">Cancelar</button>
+            </div>
+        </div>
 
         <hr>
 
@@ -45,5 +79,18 @@
     </main>
 
     <script src="script.js"></script>
+    <style>
+        /* CSS Básico (Coloque no styles.css) */
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        header { background-color: #333; color: white; padding: 15px; text-align: center; }
+        main { max-width: 900px; margin: 20px auto; background-color: white; padding: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        section { margin-bottom: 30px; }
+        input, button { padding: 10px; margin-right: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .modal { position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-conteudo { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; }
+    </style>
 </body>
 </html>

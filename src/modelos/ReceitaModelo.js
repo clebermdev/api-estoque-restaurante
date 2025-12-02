@@ -6,9 +6,6 @@ const db = require('../configuracao/bancoDados');
  * @description Modelo que gerencia a lógica de Receitas e a transação de estoque.
  */
 const ReceitaModelo = {
-    // ----------------------------------------------------------
-    // Funções Básicas (Buscar, Criar Receita e Ingredientes)
-    // ----------------------------------------------------------
     
     // CRIAR uma nova receita e seus ingredientes de uma vez
     async criarComIngredientes(receitaData, ingredientes) {
@@ -20,7 +17,7 @@ const ReceitaModelo = {
             // 2. Preparar os ingredientes para inserção na tabela pivot
             const ingredientesParaInserir = ingredientes.map(ing => ({
                 receita_id: receita_id,
-                item_id: ing.item_id, // ID do item do estoque
+                item_id: ing.item_id, 
                 quantidade_necessaria: ing.quantidade_necessaria
             }));
 
@@ -33,22 +30,45 @@ const ReceitaModelo = {
         });
     },
 
-    // ----------------------------------------------------------
+    // NOVO: Busca uma única receita e seus ingredientes
+    async buscarDetalhes(id) {
+        // 1. Busca a receita principal
+        const receita = await db('receitas').where({ id }).first();
+        if (!receita) return null;
+
+        // 2. Busca todos os ingredientes associados, juntando com a tabela 'itens' para pegar o nome
+        const ingredientes = await db('receita_ingredientes')
+            .join('itens', 'receita_ingredientes.item_id', '=', 'itens.id')
+            .where('receita_ingredientes.receita_id', id)
+            .select(
+                'itens.nome as nome_item',
+                'itens.unidade',
+                'receita_ingredientes.quantidade_necessaria',
+                'receita_ingredientes.item_id'
+            );
+
+        receita.ingredientes = ingredientes;
+        return receita;
+    },
+
+    // NOVO: Busca todas as receitas, mas de forma simplificada
+    async buscarTodas() {
+        // Para a listagem inicial, buscamos apenas os dados da tabela 'receitas'
+        return db('receitas').select('*');
+    },
+
     // Lógica Central: VENDER e ATUALIZAR ESTOQUE (Transação)
-    // ----------------------------------------------------------
-    
     async venderReceita(receita_id) {
-        // Transação é CRUCIAL para garantir que a venda e o desconto sejam ATÔMICOS.
-        // Se a venda falhar ou o desconto falhar, toda a operação é revertida.
+        // Transação é CRUCIAL
         return db.transaction(async (trx) => {
             
-            // 1. Buscar todos os ingredientes necessários para esta receita
+            // 1. Buscar os ingredientes necessários (sem JOIN, apenas IDs)
             const ingredientes = await trx('receita_ingredientes')
                 .where({ receita_id })
                 .select('item_id', 'quantidade_necessaria');
 
             if (ingredientes.length === 0) {
-                throw new Error('Receita não possui ingredientes cadastrados.');
+                throw new Error('Receita não possui ingredientes cadastrados ou ID incorreto.');
             }
 
             // 2. Verificar a disponibilidade de estoque
@@ -58,12 +78,12 @@ const ReceitaModelo = {
                     .select('quantidade', 'nome')
                     .first();
 
-                if (!itemEstoque) {
+                if (!itemEstoque || itemEstoque.quantidade === null) {
                     throw new Error(`Item de estoque (ID: ${ing.item_id}) não encontrado.`);
                 }
                 
                 // Checagem se há estoque suficiente
-                if (itemEstoque.quantidade < ing.quantidade_necessaria) {
+                if (parseFloat(itemEstoque.quantidade) < parseFloat(ing.quantidade_necessaria)) {
                     throw new Error(`Estoque insuficiente de ${itemEstoque.nome}. Necessário: ${ing.quantidade_necessaria}, Disponível: ${itemEstoque.quantidade}`);
                 }
             }
@@ -72,17 +92,15 @@ const ReceitaModelo = {
             for (const ing of ingredientes) {
                 await trx('itens')
                     .where('id', ing.item_id)
-                    // Diminui a quantidade atual pelo que é necessário para a receita
+                    // Usamos .decrement para subtrair a quantidade
                     .decrement('quantidade', ing.quantidade_necessaria); 
             }
 
-            // A transação será commitada automaticamente se todas as etapas passarem.
-            // Aqui, você pode adicionar a lógica de registro de venda, se necessário.
             return { message: 'Venda registrada com sucesso e estoque atualizado.' };
         });
     },
     
-    // ... (Outras funções, como buscarPorId, buscarIngredientes, etc.)
+    // ... (Outras funções de atualização/remoção podem ser adicionadas)
 };
 
 module.exports = ReceitaModelo;

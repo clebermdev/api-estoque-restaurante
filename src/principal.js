@@ -6,11 +6,14 @@ const http = require('http');
 const rotas = require('./rotas/rotas'); 
 // O módulo de bancoDados é carregado aqui apenas para garantir que as tabelas sejam checadas/criadas.
 const db = require('./configuracao/bancoDados'); 
+const cors = require('cors');
 
 const app = express();
 const PORTA = 8001;
 
 // --- Configuração da Aplicação ---
+
+app.use(cors());
 
 // Middleware para ler JSON: Essencial para POST e PUT
 app.use(bodyParser.json()); 
