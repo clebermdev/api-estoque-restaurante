@@ -4,7 +4,7 @@
 const API_BASE_ITENS = 'http://127.0.0.1:8001/api/v1/itens';
 const API_BASE_RECEITAS = 'http://127.0.0.1:8001/api/v1/receitas';
 
-let estoqueDisponivel = []; // Variável global para armazenar itens do estoque para o dropdown
+let estoqueDisponivel = []; 
 
 // -----------------------------------------------------
 // FUNÇÃO 1: CARREGAR ESTOQUE (Itens e Dropdown)
@@ -22,9 +22,8 @@ async function carregarEstoque() {
         }
         
         const itens = await resposta.json();
-        estoqueDisponivel = itens; // Armazena globalmente
+        estoqueDisponivel = itens; 
         
-        // Renderiza a tabela de estoque
         itens.forEach(item => {
             const linha = tbody.insertRow();
             linha.insertCell().textContent = item.id;
@@ -34,7 +33,7 @@ async function carregarEstoque() {
             
             const celulaAcoes = linha.insertCell();
             celulaAcoes.innerHTML = 
-                `<button data-id="${item.id}" onclick="alert('Editar não implementado.')">Editar</button>` +
+                `<button data-id="${item.id}" data-nome="${item.nome}" data-qtd="${item.quantidade}" data-unidade="${item.unidade}" onclick="abrirModalEdicaoItem(this.dataset)">Editar</button>` +
                 `<button data-id="${item.id}" onclick="deletarItem(this.dataset.id)">Excluir</button>`;
         });
         statusMsg.textContent = `Estoque carregado com sucesso. Total de ${itens.length} itens.`;
@@ -46,19 +45,17 @@ async function carregarEstoque() {
 }
 
 // -----------------------------------------------------
-// FUNÇÃO 2: ADICIONAR NOVO ITEM (POST)
+// FUNÇÃO 2: ADICIONAR NOVO ITEM (POST /itens)
 // -----------------------------------------------------
-async function adicionarNovoItem(e) {
+async function adicionarNovoItem(e) { 
     e.preventDefault();
     const statusMsg = document.getElementById('mensagem-status');
     statusMsg.textContent = 'Adicionando...';
 
-    // Aplica .trim() para limpar espaços em branco no início/fim
     const nome = document.getElementById('nome').value.trim(); 
     const quantidadeValor = document.getElementById('quantidade').value;
     const unidade = document.getElementById('unidade').value.trim();
 
-    // 1. Validação de campos vazios
     if (!nome || !quantidadeValor || !unidade) {
         statusMsg.textContent = 'Erro: Por favor, preencha todos os campos.';
         return;
@@ -66,7 +63,6 @@ async function adicionarNovoItem(e) {
 
     const quantidade = parseFloat(quantidadeValor);
     
-    // 2. Validação se a quantidade é um número válido e positivo
     if (isNaN(quantidade) || quantidade <= 0) {
         statusMsg.textContent = 'Erro: A quantidade deve ser um número válido maior que zero.';
         return;
@@ -86,9 +82,8 @@ async function adicionarNovoItem(e) {
         if (resposta.ok && resposta.status === 201) {
             statusMsg.textContent = `Item ${dadosResposta.nome} adicionado com sucesso! (ID: ${dadosResposta.id})`;
             document.getElementById('form-adicionar-item').reset();
-            carregarEstoque(); // Atualiza a lista
+            carregarEstoque(); 
         } else if (resposta.status === 409) {
-             // Tratamento de unicidade
              statusMsg.textContent = dadosResposta.erro;
         } else {
             statusMsg.textContent = 'Erro ao adicionar item: ' + (dadosResposta.erro || resposta.statusText);
@@ -100,54 +95,108 @@ async function adicionarNovoItem(e) {
     }
 }
 
-// -----------------------------------------------------
-// FUNÇÃO 3: LIGAR O EVENTO (HOOK)
-// -----------------------------------------------------
-document.getElementById('form-adicionar-item').addEventListener('submit', adicionarNovoItem);
 
 // -----------------------------------------------------
-// FUNÇÃO AUXILIAR: CRIA O CAMPO DE INGREDIENTE DINÂMICO
+// FUNÇÃO 3: DELETAR ITEM (DELETE /itens/:id)
+// -----------------------------------------------------
+async function deletarItem(itemId) {
+    const confirma = confirm(`Tem certeza que deseja excluir o Item ID ${itemId}?`);
+    if (!confirma) return;
+
+    try {
+        const resposta = await fetch(`${API_BASE_ITENS}/${itemId}`, {
+            method: 'DELETE'
+        });
+
+        if (resposta.status === 204) {
+            document.getElementById('mensagem-status').textContent = `Item ID ${itemId} excluído com sucesso.`;
+            carregarEstoque(); 
+        } else if (resposta.status === 404) {
+            document.getElementById('mensagem-status').textContent = `Erro: Item ID ${itemId} não encontrado.`;
+        } else {
+            document.getElementById('mensagem-status').textContent = `Erro ao excluir. Status: ${resposta.status}`;
+        }
+    } catch (erro) {
+        document.getElementById('mensagem-status').textContent = 'Erro de conexão ao tentar excluir.';
+        console.error('Erro de API:', erro);
+    }
+}
+
+
+// -----------------------------------------------------
+// FUNÇÃO 4: EDIÇÃO DE ITEM (PUT /itens/:id)
+// -----------------------------------------------------
+document.getElementById('form-editar-item').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const itemId = document.getElementById('edit-item-id').value;
+    const statusMsg = document.getElementById('mensagem-edicao-status');
+    statusMsg.textContent = 'Salvando alterações...';
+
+    const dadosAtualizados = {
+        nome: document.getElementById('edit-nome').value.trim(),
+        quantidade: parseFloat(document.getElementById('edit-quantidade').value),
+        unidade: document.getElementById('edit-unidade').value.trim()
+    };
+
+    try {
+        const resposta = await fetch(`${API_BASE_ITENS}/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dadosAtualizados)
+        });
+
+        const dadosResposta = await resposta.json();
+
+        if (resposta.ok && resposta.status === 200) {
+            statusMsg.textContent = 'Item atualizado com sucesso!';
+            document.getElementById('modal-edicao-item').style.display = 'none';
+            carregarEstoque(); 
+        } else if (resposta.status === 409) {
+             statusMsg.textContent = dadosResposta.erro;
+        } else {
+            statusMsg.textContent = 'Erro ao salvar: ' + (dadosResposta.erro || resposta.statusText);
+        }
+    } catch (erro) {
+        statusMsg.textContent = 'Erro de conexão ao tentar editar.';
+        console.error('Erro de API:', erro);
+    }
+});
+
+
+// -----------------------------------------------------
+// FUNÇÃO 5: CRIA CAMPO DE INGREDIENTE DINÂMICO
 // -----------------------------------------------------
 function criarCampoIngrediente() {
     const container = document.getElementById('ingredientes-container');
-    
-    // Cria um grupo div para o ingrediente
     const grupo = document.createElement('div');
     grupo.className = 'ingrediente-grupo';
     grupo.style.marginBottom = '15px';
 
-    // 1. Dropdown (Select) para escolher o item do estoque (ID)
     const select = document.createElement('select');
     select.required = true;
-
-    // Opção default
     const optDefault = document.createElement('option');
     optDefault.textContent = 'Selecione o Ingrediente (ID)';
     optDefault.value = '';
     select.appendChild(optDefault);
 
-    // Popula as opções com base no estoqueDisponivel
     estoqueDisponivel.forEach(item => {
         const option = document.createElement('option');
-        option.value = item.id; // O valor é o item_id
+        option.value = item.id; 
         option.textContent = `${item.nome} (${item.unidade})`;
         select.appendChild(option);
     });
 
-    // 2. Input para a Quantidade Necessária
     const inputQtd = document.createElement('input');
     inputQtd.type = 'number';
     inputQtd.step = '0.001';
     inputQtd.placeholder = 'Qtd. Necessária';
     inputQtd.required = true;
     
-    // 3. Botão Remover
     const btnRemover = document.createElement('button');
     btnRemover.type = 'button';
     btnRemover.textContent = 'Remover';
     btnRemover.onclick = () => container.removeChild(grupo);
 
-    // Adiciona os elementos ao grupo
     grupo.appendChild(select);
     grupo.appendChild(inputQtd);
     grupo.appendChild(btnRemover);
@@ -157,7 +206,7 @@ function criarCampoIngrediente() {
 
 
 // -----------------------------------------------------
-// FUNÇÃO 5: CADASTRAR NOVA RECEITA (POST /receitas)
+// FUNÇÃO 6: CADASTRAR NOVA RECEITA (POST /receitas)
 // -----------------------------------------------------
 document.getElementById('form-cadastrar-receita').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -170,7 +219,6 @@ document.getElementById('form-cadastrar-receita').addEventListener('submit', asy
     const ingredientes = [];
     let validacao = true;
 
-    // Coleta os dados dos ingredientes dinâmicos
     document.querySelectorAll('.ingrediente-grupo').forEach(grupo => {
         const itemId = grupo.querySelector('select').value;
         const qtd = parseFloat(grupo.querySelector('input').value);
@@ -181,7 +229,7 @@ document.getElementById('form-cadastrar-receita').addEventListener('submit', asy
         
         if (validacao) {
              ingredientes.push({
-                item_id: parseInt(itemId), // Garante que o ID seja inteiro
+                item_id: parseInt(itemId),
                 quantidade_necessaria: qtd
             });
         }
@@ -206,8 +254,8 @@ document.getElementById('form-cadastrar-receita').addEventListener('submit', asy
         if (resposta.ok && resposta.status === 201) {
             statusMsg.textContent = `Receita "${dadosResposta.receita.nome}" cadastrada com sucesso! (ID: ${dadosResposta.receita.id})`;
             document.getElementById('form-cadastrar-receita').reset();
-            document.getElementById('ingredientes-container').innerHTML = ''; // Limpa ingredientes
-            carregarReceitas(); // Atualiza a lista de receitas
+            document.getElementById('ingredientes-container').innerHTML = '';
+            carregarReceitas(); 
         } else if (resposta.status === 409) {
              statusMsg.textContent = dadosResposta.erro;
         } else {
@@ -222,7 +270,7 @@ document.getElementById('form-cadastrar-receita').addEventListener('submit', asy
 
 
 // -----------------------------------------------------
-// FUNÇÃO 6: CARREGAR/LISTAR RECEITAS (GET)
+// FUNÇÃO 7: CARREGAR/LISTAR RECEITAS (GET /receitas)
 // -----------------------------------------------------
 async function carregarReceitas() {
     const tbody = document.querySelector('#tabela-receitas tbody');
@@ -246,16 +294,17 @@ async function carregarReceitas() {
                 linha.insertCell().textContent = receita.id;
                 linha.insertCell().textContent = receita.nome;
                 linha.insertCell().textContent = `R$ ${parseFloat(receita.preco_venda || 0).toFixed(2)}`;
-                linha.insertCell().textContent = 'Ver Detalhes...'; 
+                linha.insertCell().textContent = 'Detalhes na API...'; 
                 
                 const celulaVenda = linha.insertCell();
                 celulaVenda.innerHTML = 
                     `<button data-id="${receita.id}" data-nome="${receita.nome}" onclick="abrirModalVenda(this.dataset.id, this.dataset.nome)">Vender</button>`;
 
                 const celulaAcoes = linha.insertCell();
+                // Botão EDITAR Receita - CHAMA A NOVA FUNÇÃO DE EDIÇÃO DE RECEITA
                 celulaAcoes.innerHTML = 
-                    `<button data-id="${receita.id}">Editar</button>` + 
-                    `<button data-id="${receita.id}" onclick="alert('Excluir Receita não implementado na API.')">Excluir</button>`;
+                    `<button data-id="${receita.id}" data-nome="${receita.nome}" data-preco="${receita.preco_venda}" onclick="abrirModalEdicaoReceita(this.dataset)">Editar</button>` + 
+                    `<button data-id="${receita.id}" onclick="deletarReceita(this.dataset.id)">Excluir</button>`;
             });
 
         } else {
@@ -268,11 +317,37 @@ async function carregarReceitas() {
     }
 }
 
-// -----------------------------------------------------
-// FUNÇÃO 7: VENDER RECEITA (POST /:id/vender)
-// -----------------------------------------------------
-// ... (mantenha a função venderReceita inalterada)
 
+// -----------------------------------------------------
+// FUNÇÃO 8: DELETAR RECEITA (DELETE /receitas/:id)
+// -----------------------------------------------------
+async function deletarReceita(receitaId) {
+    const confirma = confirm(`Tem certeza que deseja EXCLUIR a Receita ID ${receitaId}? Esta ação também apagará os ingredientes associados.`);
+    if (!confirma) return;
+
+    try {
+        const resposta = await fetch(`${API_BASE_RECEITAS}/${receitaId}`, {
+            method: 'DELETE'
+        });
+
+        if (resposta.status === 204) {
+            document.getElementById('mensagem-receita').textContent = `Receita ID ${receitaId} excluída com sucesso.`;
+            carregarReceitas(); 
+        } else if (resposta.status === 404) {
+            document.getElementById('mensagem-receita').textContent = `Erro: Receita ID ${receitaId} não encontrada.`;
+        } else {
+            document.getElementById('mensagem-receita').textContent = `Erro ao excluir. Status: ${resposta.status}`;
+        }
+    } catch (erro) {
+        document.getElementById('mensagem-receita').textContent = 'Erro de conexão ao tentar excluir receita.';
+        console.error('Erro de API:', erro);
+    }
+}
+
+
+// -----------------------------------------------------
+// FUNÇÃO 9: VENDER RECEITA (POST /:id/vender)
+// -----------------------------------------------------
 async function venderReceita(receitaId) {
     const statusMsg = document.getElementById('mensagem-receita');
     statusMsg.textContent = `Processando venda da Receita ID ${receitaId}...`;
@@ -288,7 +363,7 @@ async function venderReceita(receitaId) {
 
         if (resposta.ok && resposta.status === 200) {
             statusMsg.textContent = `Venda Sucesso: ${dadosResposta.message}`;
-            carregarEstoque(); // Atualiza o estoque para refletir o desconto
+            carregarEstoque(); 
         } else if (resposta.status === 409) {
             statusMsg.textContent = `FALHA NA VENDA (Estoque Insuficiente): ${dadosResposta.detalhes}`;
         } else {
@@ -301,45 +376,111 @@ async function venderReceita(receitaId) {
     }
 }
 
-// -----------------------------------------------------
-// EVENTOS INICIAIS E AUXILIARES
-// -----------------------------------------------------
 
-// Evento que aciona a função de adicionar campo de ingrediente
-document.getElementById('adicionar-ingrediente').addEventListener('click', criarCampoIngrediente);
+// -----------------------------------------------------
+// FUNÇÃO 10: EDIÇÃO DE RECEITA (PUT /receitas/:id) - NOVO
+// -----------------------------------------------------
+document.getElementById('form-editar-receita').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const receitaId = document.getElementById('edit-receita-id').value;
+    const statusMsg = document.getElementById('mensagem-edicao-receita-status');
+    statusMsg.textContent = 'Salvando alterações...';
 
-// Evento que mostra o formulário de cadastro de receita
-document.getElementById('botao-nova-receita').addEventListener('click', () => {
-    // Esconde a lista de receitas, mostra o formulário
-    document.getElementById('cadastro-receita-section').style.display = 'block';
-    document.getElementById('separador-receitas').style.display = 'block';
-    
-    // Garante que o estoque esteja carregado antes de mostrar o formulário
-    if (estoqueDisponivel.length === 0) {
-        carregarEstoque();
+    const dadosAtualizados = {
+        nome: document.getElementById('edit-receita-nome').value.trim(),
+        preco_venda: parseFloat(document.getElementById('edit-receita-preco').value)
+    };
+
+    try {
+        const resposta = await fetch(`${API_BASE_RECEITAS}/${receitaId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dadosAtualizados)
+        });
+
+        const dadosResposta = await resposta.json();
+
+        if (resposta.ok && resposta.status === 200) {
+            statusMsg.textContent = 'Receita atualizada com sucesso!';
+            document.getElementById('modal-edicao-receita').style.display = 'none';
+            carregarReceitas(); // Atualiza a lista principal
+        } else if (resposta.status === 409) {
+             statusMsg.textContent = dadosResposta.erro;
+        } else {
+            statusMsg.textContent = 'Erro ao salvar: ' + (dadosResposta.erro || resposta.statusText);
+        }
+    } catch (erro) {
+        statusMsg.textContent = 'Erro de conexão ao tentar editar.';
+        console.error('Erro de API:', erro);
     }
-    // Liga o formulário de adição de item à nova função
-document.getElementById('form-adicionar-item').addEventListener('submit', adicionarNovoItem);
 });
 
 
+// -----------------------------------------------------
+// EVENTOS INICIAIS E AUXILIARES (CONSOLIDAÇÃO)
+// -----------------------------------------------------
 
-// Inicializa os eventos auxiliares (modal e botões)
+// Botão Adicionar Item
+document.getElementById('form-adicionar-item').addEventListener('submit', adicionarNovoItem); 
+
+// Botão Adicionar Ingrediente (Dinâmico)
+document.getElementById('adicionar-ingrediente').addEventListener('click', criarCampoIngrediente);
+
+// Botão Carregar Estoque
 document.getElementById('botao-carregar').addEventListener('click', carregarEstoque);
+
+// Botão Carregar Receitas
 document.getElementById('botao-carregar-receitas').addEventListener('click', carregarReceitas);
 
+// Botão Mostrar Formulário de Cadastro de Receita
+document.getElementById('botao-nova-receita').addEventListener('click', () => {
+    document.getElementById('cadastro-receita-section').style.display = 'block';
+    document.getElementById('separador-receitas').style.display = 'block';
+    if (estoqueDisponivel.length === 0) {
+        carregarEstoque();
+    }
+});
+
+// Botão de Confirmação de Venda
 document.getElementById('confirmar-venda').addEventListener('click', () => {
     const receitaId = document.getElementById('confirmar-venda').dataset.receitaId;
     venderReceita(receitaId);
 });
 
+// Função Auxiliar: Abre Modal Venda
 function abrirModalVenda(receitaId, nomeReceita) {
     document.getElementById('nome-receita-venda').textContent = nomeReceita;
     document.getElementById('confirmar-venda').dataset.receitaId = receitaId;
     document.getElementById('modal-venda').style.display = 'block';
 }
 
-// Carrega o estoque e as receitas ao carregar a página
+// Função Auxiliar: Abre Modal Edição Item (Estoque)
+function abrirModalEdicaoItem(dadosItem) {
+    document.getElementById('item-id-edicao').textContent = dadosItem.id;
+    document.getElementById('item-nome-edicao').textContent = dadosItem.nome;
+    document.getElementById('edit-item-id').value = dadosItem.id;
+    document.getElementById('edit-nome').value = dadosItem.nome;
+    document.getElementById('edit-quantidade').value = parseFloat(dadosItem.qtd).toFixed(3);
+    document.getElementById('edit-unidade').value = dadosItem.unidade;
+
+    document.getElementById('modal-edicao-item').style.display = 'block';
+    document.getElementById('mensagem-edicao-status').textContent = '';
+}
+
+// [NOVO] Função Auxiliar: Abre Modal Edição Receita
+function abrirModalEdicaoReceita(dadosReceita) {
+    document.getElementById('receita-id-edicao').textContent = dadosReceita.id;
+    document.getElementById('receita-nome-edicao').textContent = dadosReceita.nome;
+    document.getElementById('edit-receita-id').value = dadosReceita.id;
+    document.getElementById('edit-receita-nome').value = dadosReceita.nome;
+    document.getElementById('edit-receita-preco').value = parseFloat(dadosReceita.preco).toFixed(2);
+
+    document.getElementById('modal-edicao-receita').style.display = 'block';
+    document.getElementById('mensagem-edicao-receita-status').textContent = '';
+}
+
+
+// Carrega estoque e receitas ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstoque();
     carregarReceitas();
